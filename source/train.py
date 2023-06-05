@@ -8,6 +8,7 @@ from tqdm import tqdm
 import soundfile as sf
 import pickle
 import os
+from adabelief_pytorch import AdaBelief
 
 from dataset import Hum2GuitarSet
 from torch.utils.data import DataLoader
@@ -62,7 +63,7 @@ train_dloader = DataLoader(guitarset, batch_size=1,shuffle=True, num_workers=4 i
 beta1 = 0.5
 beta2 = .999
 lr = 2*1e-4
-eps = 1e-8
+eps = 1e-14
 num_D=3
 FM_LAMBDA = 10
 DECAY_EPOCH = 100
@@ -84,13 +85,20 @@ net_GG.apply(init_weights)
 net_D.apply(init_weights)
 
 ## OPTIMIZER
-optimizer_D = torch.optim.Adam(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps )
-optimizer_GG = torch.optim.Adam(net_GG.parameters(), lr=lr, betas=(beta1, beta2), eps=eps)
+optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False )
+optimizer_GG = AdaBelief(net_GG.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False)
+
+## SCHEDULER
+scheduler_D = torch.optim.lr_scheduler.LambdaLR(optimizer_D, lambda epoch: lr_lambda(epoch, n_epochs=N_JOINT_EPOCHS+N_FIXED_GLOBAL_EPOCHS, decay_epoch=DECAY_EPOCH), verbose = True)
+scheduler_GG = torch.optim.lr_scheduler.LambdaLR(optimizer_GG, lambda epoch: lr_lambda(epoch, n_epochs=N_JOINT_EPOCHS+N_FIXED_GLOBAL_EPOCHS, decay_epoch=DECAY_EPOCH), verbose = True)
+
+
 
 loss_dict = {'G': [], 'D': []}
 best_loss_G = np.inf
 plot_ind = 0 
 epoch_ = 0
+
 
 
 if config.pretrained_global is not None:
@@ -104,6 +112,9 @@ if config.pretrained_global is not None:
     net_D.load_state_dict(checkpoint_global['net_D'])
     optimizer_D.load_state_dict(checkpoint_global['optimizer_D'])
     optimizer_GG.load_state_dict(checkpoint_global['optimizer_GG'])
+    scheduler_GG.load_state_dict(checkpoint_local['scheduler_GG'])
+    scheduler_D.load_state_dict(checkpoint_local['scheduler_D'])
+
     
 for e in range(epoch_, N_GG_EPOCHS):
     if e == epoch_:
@@ -175,7 +186,10 @@ for e in range(epoch_, N_GG_EPOCHS):
                         fig.savefig(f'{GUITAR_SAMPLE_SAVE_DIR}/gg_{str(plot_ind).zfill(4)}.jpg')
                         plt.close(fig)
                         plot_ind += 1
-    
+
+    scheduler_D.step()
+    scheduler_GG.step()
+   
     epoch_result = f"[Epoch {e+1}] loss D: {loss_D / len(train_dloader)} loss G: {loss_G / len(train_dloader)} [GAN: {loss_G_GAN/ len(train_dloader) } + FM: {loss_G_FM/ len(train_dloader) }]"  
     printlog(epoch_result, LOG_PATH)    
     
@@ -191,6 +205,8 @@ for e in range(epoch_, N_GG_EPOCHS):
             'net_GG': net_GG.state_dict(),
             'net_D': net_D.state_dict(),
             'optimizer_GG': optimizer_GG.state_dict(),
+            'scheduler_GG': scheduler_GG.state_dict(),
+            'scheduler_D': scheduler_D.state_dict(),
             'optimizer_D': optimizer_D.state_dict(),
             'loss_dict_global': loss_dict,
             'loss_G': loss_G,
@@ -217,8 +233,8 @@ net_LE.apply(init_weights)
 net_LE.global_generator = nn.Sequential(*[getattr(net_GG, k) for k in ['down', 'res', 'up']])
 
 ## OPITMIZER
-optimizer_D = torch.optim.Adam(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps)
-optimizer_LE = torch.optim.Adam(net_LE.parameters(), lr=lr, betas=(beta1, beta2), eps=eps)
+optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False)
+optimizer_LE = AdaBelief(net_LE.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False)
 
 ## SCHEDULER
 scheduler_D = torch.optim.lr_scheduler.LambdaLR(optimizer_D, lambda epoch: lr_lambda(epoch, n_epochs=N_JOINT_EPOCHS+N_FIXED_GLOBAL_EPOCHS, decay_epoch=DECAY_EPOCH), verbose = True)
