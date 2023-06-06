@@ -59,7 +59,7 @@ x_s = x_s.unsqueeze(0).to(device)
 
 # DATALOADER
 train_dloader = DataLoader(guitarset, batch_size=1,shuffle=True, num_workers=4 if torch.cuda.is_available() else 0, worker_init_fn=seed_worker)
-
+N =  len(train_dloader)
 beta1 = 0.5
 beta2 = .999
 lr = 2*1e-4
@@ -67,6 +67,7 @@ eps = 1e-14
 num_D=3
 FM_LAMBDA = 10
 DECAY_EPOCH = 100
+var = .1
 
 # LOSS FUNCTION
 crit_gan = LossGAN(ls=True)
@@ -85,8 +86,8 @@ net_GG.apply(init_weights)
 net_D.apply(init_weights)
 
 ## OPTIMIZER
-optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False )
-optimizer_GG = AdaBelief(net_GG.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False)
+optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False, weight_decouple=False, rectify=False )
+optimizer_GG = AdaBelief(net_GG.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False, weight_decouple=False, rectify=False)
 
 ## SCHEDULER
 scheduler_D = torch.optim.lr_scheduler.LambdaLR(optimizer_D, lambda epoch: lr_lambda(epoch, n_epochs=N_JOINT_EPOCHS+N_FIXED_GLOBAL_EPOCHS, decay_epoch=DECAY_EPOCH), verbose = True)
@@ -108,12 +109,15 @@ if config.pretrained_global is not None:
     print('load chekcpoint {} epoch'.format(epoch_))
     plot_ind = checkpoint_global['plot_ind']
     loss_dict = checkpoint_global['loss_dict_global']
+    
     net_GG.load_state_dict(checkpoint_global['net_GG'])
     net_D.load_state_dict(checkpoint_global['net_D'])
+    
     optimizer_D.load_state_dict(checkpoint_global['optimizer_D'])
     optimizer_GG.load_state_dict(checkpoint_global['optimizer_GG'])
-    scheduler_GG.load_state_dict(checkpoint_local['scheduler_GG'])
-    scheduler_D.load_state_dict(checkpoint_local['scheduler_D'])
+    
+    scheduler_GG.load_state_dict(checkpoint_global['scheduler_GG'])
+    scheduler_D.load_state_dict(checkpoint_global['scheduler_D'])
 
     
 for e in range(epoch_, N_GG_EPOCHS):
@@ -123,6 +127,8 @@ for e in range(epoch_, N_GG_EPOCHS):
     loss_G = 0
     loss_G_GAN = 0
     loss_G_FM = 0
+    loss_D_REAL=0
+    loss_D_FAKE=0
     with tqdm(train_dloader, unit='batch') as tepoch:
         for b, (h, x, _) in enumerate(tepoch):       
             tepoch.set_description(f"[Epoch {e+1}]")
@@ -139,12 +145,17 @@ for e in range(epoch_, N_GG_EPOCHS):
             h_down = DownSampling(h)
 
             # Update Generator
+            
             # x' = G(h)
             x_fake_down = net_GG(h_down)
+            
             # D(x')
-            y_fake_down = net_D(x_fake_down, h_down)
+            noise = torch.normal(0, var, size=x_fake_down.shape).to(device)
+            y_fake_down = net_D(x_fake_down + noise, h_down)
+            
             # D(x)
-            y_real_down = net_D(x_real_down, h_down)
+            noise = torch.normal(0, var, size=x_fake_down.shape).to(device)
+            y_real_down = net_D(x_real_down + noise, h_down)
             
             loss_gan_fake_g = 0
             for i in range(num_D): # lossGAN
@@ -158,7 +169,8 @@ for e in range(epoch_, N_GG_EPOCHS):
             
             # Update Discriminator
             # D(x')
-            y_fake_down = net_D(x_fake_down.detach(), h_down)
+            noise = torch.normal(0, var, size=x_fake_down.shape).to(device)
+            y_fake_down = net_D(x_fake_down.detach()+noise, h_down)
         
             loss_gan_real_d = 0
             loss_gan_fake_d = 0
@@ -173,10 +185,14 @@ for e in range(epoch_, N_GG_EPOCHS):
             
             loss_G += loss_g.item()
             loss_D += loss_d.item()
+
+            loss_D_REAL += loss_gan_real_d.item()
+            loss_D_FAKE += loss_gan_fake_d.item()
+            
             loss_G_GAN += loss_gan_fake_g.item()
             loss_G_FM += loss_fm.item()
             
-            tepoch.set_postfix(loss_d=loss_d.item(), loss_g_fake=loss_gan_fake_g.item(), loss_fm=loss_fm.item())
+            tepoch.set_postfix(loss_d_fake=loss_gan_fake_d.item(), loss_d_real=loss_gan_real_d.item(), loss_g_fake=loss_gan_fake_g.item(), loss_fm=loss_fm.item())
             if b % PLOT_INTERVAL == 0:
                     net_GG.eval()
                     with torch.no_grad():
@@ -189,8 +205,8 @@ for e in range(epoch_, N_GG_EPOCHS):
 
     scheduler_D.step()
     scheduler_GG.step()
-   
-    epoch_result = f"[Epoch {e+1}] loss D: {loss_D / len(train_dloader)} loss G: {loss_G / len(train_dloader)} [GAN: {loss_G_GAN/ len(train_dloader) } + FM: {loss_G_FM/ len(train_dloader) }]"  
+    
+    epoch_result = f"[Epoch {e+1}] loss D: {loss_D /N} [REAL: {loss_D_REAL/N} FAKE: {loss_D_FAKE/N}] loss G: {loss_G /N} [GAN: {loss_G_GAN/N } + FM: {loss_G_FM/N }]"  
     printlog(epoch_result, LOG_PATH)    
     
     # Save loss dict
@@ -233,8 +249,8 @@ net_LE.apply(init_weights)
 net_LE.global_generator = nn.Sequential(*[getattr(net_GG, k) for k in ['down', 'res', 'up']])
 
 ## OPITMIZER
-optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False)
-optimizer_LE = AdaBelief(net_LE.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False)
+optimizer_D = AdaBelief(net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False, weight_decouple=False, rectify=False)
+optimizer_LE = AdaBelief(net_LE.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False, weight_decouple=False, rectify=False)
 
 ## SCHEDULER
 scheduler_D = torch.optim.lr_scheduler.LambdaLR(optimizer_D, lambda epoch: lr_lambda(epoch, n_epochs=N_JOINT_EPOCHS+N_FIXED_GLOBAL_EPOCHS, decay_epoch=DECAY_EPOCH), verbose = True)
@@ -267,8 +283,12 @@ if config.pretrained_local is not None:
 for e in range(epoch_, N_FIXED_GLOBAL_EPOCHS + N_JOINT_EPOCHS):
     loss_D = 0
     loss_G = 0
+    
     loss_G_GAN = 0
     loss_G_FM = 0
+    
+    loss_D_REAL=0
+    loss_D_FAKE=0
 
     if (N_FIXED_GLOBAL_EPOCHS > 0) & (e == epoch_):
         printlog(f"--> Train Only Local Enhancer for {N_FIXED_GLOBAL_EPOCHS} epochs", LOG_PATH)
@@ -291,10 +311,14 @@ for e in range(epoch_, N_FIXED_GLOBAL_EPOCHS + N_JOINT_EPOCHS):
             
             # x' = G(h)        
             x_fake = net_LE(h)
+            
             # D(x')
-            y_fake = net_D(x_fake, h)
+            noise = torch.normal(0, var, size=x_fake.shape).to(device)
+            y_fake = net_D(x_fake + noise, h)
+            
             # D(x)
-            y_real = net_D(x, h)
+            noise = torch.normal(0, var, size=x_fake.shape).to(device)
+            y_real = net_D(x + noise, h)
 
             # Update Generator
             loss_gan_fake_g = 0
@@ -309,7 +333,9 @@ for e in range(epoch_, N_FIXED_GLOBAL_EPOCHS + N_JOINT_EPOCHS):
 
             # Update Discriminator
             # D(x')
-            y_fake = net_D(x_fake.detach(), h)
+            noise = torch.normal(0, var, size=x_fake.shape).to(device)
+            y_fake = net_D(x_fake.detach()+noise, h)
+            
             loss_gan_real_d = 0
             loss_gan_fake_d = 0
             for i in range(num_D): 
@@ -324,10 +350,14 @@ for e in range(epoch_, N_FIXED_GLOBAL_EPOCHS + N_JOINT_EPOCHS):
         
             loss_G += loss_g.item()
             loss_D += loss_d.item()
+            
+            loss_D_REAL += loss_gan_real_d.item()
+            loss_D_FAKE += loss_gan_fake_d.item()
+            
             loss_G_GAN += loss_gan_fake_g.item()
             loss_G_FM += loss_fm.item()
             
-            tepoch.set_postfix(loss_d=loss_d.item(), loss_g_fake=loss_gan_fake_g.item(), loss_fm=loss_fm.item())
+            tepoch.set_postfix(loss_d_fake=loss_gan_fake_d.item(), loss_d_real=loss_gan_real_d.item(), loss_g_fake=loss_gan_fake_g.item(), loss_fm=loss_fm.item())
             
             if b % PLOT_INTERVAL == 0:
                     net_LE.eval()
@@ -354,7 +384,7 @@ for e in range(epoch_, N_FIXED_GLOBAL_EPOCHS + N_JOINT_EPOCHS):
     loss_dict['G'].append(loss_G / len(train_dloader))    
    
     
-    epoch_result = f"[Epoch {e+1}] loss D: {loss_D / len(train_dloader)} loss G: {loss_G / len(train_dloader)} [GAN: {loss_G_GAN/ len(train_dloader) } + FM: {loss_G_FM/ len(train_dloader) }]"
+    epoch_result = f"[Epoch {e+1}] loss D: {loss_D /N} [REAL: {loss_D_REAL/N} FAKE: {loss_D_FAKE/N}] loss G: {loss_G /N} [GAN: {loss_G_GAN/N } + FM: {loss_G_FM/N }]"  
     printlog(epoch_result, LOG_PATH)    
 
     checkpoint_local = {
