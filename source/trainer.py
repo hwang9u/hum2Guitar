@@ -12,7 +12,6 @@ from utils.env import create_folder
 import matplotlib.pyplot as plt
 
 
-
 class Trainer:
     def __init__(self, config, train_dloader, stft_kwargs, mel_kwargs, global_generator=None, stage="global", device= "cpu", lr_decay_epochs=100):
         self.device = device
@@ -57,7 +56,7 @@ class Trainer:
                         
         self.crit_gan = LossGAN(ls=True)
         self.crit_fm = LossFM(num_D=self.net_D.num_D, n_layers=self.net_D.n_layers)
-        
+        self.DownSampling = nn.AvgPool2d(kernel_size=(3,1), stride=(2,1), padding=[1, 0], count_include_pad=False)
             
     def create_optimizer(self, lr, beta1=0.5, beta2=0.999, eps=1e-12):
         self.optimizer_D = AdaBelief(self.net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False, weight_decouple=False, rectify=False)
@@ -129,9 +128,8 @@ class Trainer:
 
                     if self.stage =="global":
                         # Downsampling 
-                        DownSampling = nn.AvgPool2d(kernel_size=(3,1), stride=(2,1), padding=[1, 0], count_include_pad=False)
-                        x = DownSampling(x)
-                        h = DownSampling(h)
+                        x = self.DownSampling(x).detach()
+                        h = self.DownSampling(h).detach()
         
                     # Update Generator
 
@@ -199,6 +197,17 @@ class Trainer:
                                 fig.savefig(f'{self.HUMMING_SAMPLE_SAVE_DIR}/{self.stage}_sample_{str(self.plot_ind).zfill(4)}.jpg')
                                 plt.close(fig)
                                 self.plot_ind += 1   
+                                del fig
+                    del x
+                    del h
+                    del y_fake
+                    del y_real
+                    del loss_gan_fake_d
+                    del loss_gan_fake_g
+                    del loss_gan_real_d
+                    del x_fake
+                    del loss_d
+                    del loss_g
 
             if self.scheduler_D != None:
                 self.scheduler_D.step()
@@ -226,7 +235,7 @@ class Trainer:
                     'loss_dict': self.loss_dict,
                     }
             torch.save(checkpoint, f"{self.CHECKPOINT_SAVE_DIR}/checkpoint_{self.stage}{self.config.name}.tar") ## save checkpoint
-
+            del checkpoint
             gc.collect()
             torch.cuda.empty_cache() 
 
