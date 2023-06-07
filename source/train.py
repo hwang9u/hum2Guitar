@@ -13,11 +13,13 @@ from adabelief_pytorch import AdaBelief
 from dataset import Hum2GuitarSet
 from torch.utils.data import DataLoader
 from model import GlobalGenerator, LocalEnhancer, MultiscaleDiscriminator, trainable_global, init_weights
-from criterion import LossFM, LossGAN, lr_lambda
+from criterion import LossFM, LossGAN
 from utils.env import create_config, create_folder, seed_worker, set_seed, printlog
 from utils.vis import plot_sample
 from args import mel_kwargs, stft_kwargs
-from trainer import Trainer
+from trainer import Trainer, optimizer_to, scheduler_to
+gc.collect()
+torch.cuda.empty_cache() 
 
 config = create_config()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -27,7 +29,7 @@ FM_LAMBDA=10
 lr = 2e-4
 beta1 = .5
 beta2 = .999
-lr_decay_epochs=3
+lr_decay_epochs=100
 
 # DATASET
 guitarset = Hum2GuitarSet(config.guitar_dir, input_type='guitar', stft_kwargs=stft_kwargs, mel_kwargs=mel_kwargs)
@@ -52,9 +54,21 @@ else:
     if config.pretrained_global is not None:
         printlog(f'\n[STAGE 1] Load Pre-trained Global Generator/Discriminator from {global_trainer.config.pretrained_global}', global_trainer.LOG_PATH)
         global_trainer.load_checkpoint(config.pretrained_global)
+    
+    print(f"To Device: {device}")
+    global_trainer.net_G.to(device)
+    global_trainer.net_D.to(device)
+    
+    optimizer_to(global_trainer.optimizer_G, device)
+    optimizer_to(global_trainer.optimizer_D, device)
+    
+    scheduler_to(global_trainer.scheduler_G, device)
+    scheduler_to(global_trainer.scheduler_D, device)
+    
     print("[Start] Training Global Generator\n" )
     global_trainer.train(h_s=h_s, x_s=x_s, FM_LAMBDA=FM_LAMBDA)
-    print("[End] Training Global Generator\n" )
+    print("[End]\n" )
+
 
 print("[Start] Training Local Enhancer\n" )
 global_generator = global_trainer.net_G
@@ -64,5 +78,17 @@ local_trainer.create_scheduler(lr_decay_epochs=lr_decay_epochs)
 if config.pretrained_local is not None:
     printlog(f'\n[STAGE 2] Load Pre-trained Local Enhancer/Discriminator from {config.pretrained_local}', local_trainer.LOG_PATH)
     local_trainer.load_checkpoint(config.pretrained_local)
+
+local_trainer.net_G.to(device)
+local_trainer.net_D.to(device)
+
+optimizer_to(local_trainer.optimizer_G, device)
+optimizer_to(local_trainer.optimizer_D, device)
+
+scheduler_to(local_trainer.scheduler_G, device)
+scheduler_to(local_trainer.scheduler_D, device)
+# Train
+print("[Start] Training Local Enhancer\n" )
 local_trainer.train(h_s=h_s, x_s=x_s)
+print("[End]\n" )
 

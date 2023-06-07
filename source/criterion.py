@@ -27,6 +27,3 @@ class LossGAN(nn.Module):
         loss = self.loss_func(y, label)
         return loss
 
-## learning rate scheduler    
-def lr_lambda(epoch, n_epochs, decay_epoch):
-    return 1. if epoch < decay_epoch else 1 - float(epoch - decay_epoch) / (n_epochs - decay_epoch)

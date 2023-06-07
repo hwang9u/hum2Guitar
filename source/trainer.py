@@ -6,11 +6,35 @@ import os
 from tqdm import tqdm
 from adabelief_pytorch import AdaBelief
 from model import GlobalGenerator, LocalEnhancer, MultiscaleDiscriminator, init_weights, trainable_global
-from criterion import LossFM, LossGAN, lr_lambda
+from criterion import LossFM, LossGAN
 from utils.vis import plot_sample
 from utils.env import create_folder
 import matplotlib.pyplot as plt
 
+## learning rate scheduler    
+def lr_lambda(epoch, n_epochs, decay_epoch):
+    return 1. if epoch < decay_epoch else 1 - float(epoch - decay_epoch) / (n_epochs - decay_epoch)
+
+def optimizer_to(optim, device):
+    for param in optim.state.values():
+        # Not sure there are any global tensors in the state dict
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
+        elif isinstance(param, dict):
+            for subparam in param.values():
+                if isinstance(subparam, torch.Tensor):
+                    subparam.data = subparam.data.to(device)
+                    if subparam._grad is not None:
+                        subparam._grad.data = subparam._grad.data.to(device)
+
+def scheduler_to(sched, device):
+    for param in sched.__dict__.values():
+        if isinstance(param, torch.Tensor):
+            param.data = param.data.to(device)
+            if param._grad is not None:
+                param._grad.data = param._grad.data.to(device)
 
 class Trainer:
     def __init__(self, config, train_dloader, stft_kwargs, mel_kwargs, global_generator=None, stage="global", device= "cpu", lr_decay_epochs=100):
@@ -49,22 +73,24 @@ class Trainer:
             net_LE.global_generator = nn.Sequential(*[getattr(global_generator, k) for k in ['down', 'res', 'up']])
             self.net_G = net_LE
 
-        
-        
-        self.net_G.to(device)
-        self.net_D.to(device)
+        # self.net_G.to(device)
+        # self.net_D.to(device)
                         
         self.crit_gan = LossGAN(ls=True)
         self.crit_fm = LossFM(num_D=self.net_D.num_D, n_layers=self.net_D.n_layers)
         self.DownSampling = nn.AvgPool2d(kernel_size=(3,1), stride=(2,1), padding=[1, 0], count_include_pad=False)
             
     def create_optimizer(self, lr, beta1=0.5, beta2=0.999, eps=1e-12):
-        self.optimizer_D = AdaBelief(self.net_D.parameters(), lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False, weight_decouple=False, rectify=False)
-        self.optimizer_G = AdaBelief(self.net_G.parameters(), lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False, weight_decouple=False, rectify=False)
+        self.optimizer_D = AdaBelief(self.net_D.parameters(),
+                                     lr=lr, betas=(beta1, beta2), eps=eps,print_change_log=False, weight_decouple=False, rectify=False)
+        self.optimizer_G = AdaBelief(self.net_G.parameters(),
+                                     lr=lr, betas=(beta1, beta2), eps=eps, print_change_log=False, weight_decouple=False, rectify=False)
 
     def create_scheduler(self, lr_decay_epochs = 100):
-        self.scheduler_D = torch.optim.lr_scheduler.LambdaLR(self.optimizer_D, lambda epoch: lr_lambda(epoch, n_epochs=self.n_epochs, decay_epoch=lr_decay_epochs), verbose = True)
-        self.scheduler_G = torch.optim.lr_scheduler.LambdaLR(self.optimizer_G, lambda epoch: lr_lambda(epoch, n_epochs=self.n_epochs, decay_epoch=lr_decay_epochs), verbose = True)
+        self.scheduler_D = torch.optim.lr_scheduler.LambdaLR(self.optimizer_D,
+                                                             lambda epoch: lr_lambda(epoch, n_epochs=self.n_epochs, decay_epoch=lr_decay_epochs), verbose = True)
+        self.scheduler_G = torch.optim.lr_scheduler.LambdaLR(self.optimizer_G,
+                                                             lambda epoch: lr_lambda(epoch, n_epochs=self.n_epochs, decay_epoch=lr_decay_epochs), verbose = True)
 
     def create_ev(self):
         self.LOG_PATH = os.path.join(self.config.out_dir, self.config.log)
@@ -78,7 +104,7 @@ class Trainer:
 
         
     def load_checkpoint(self, checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=self.device) 
+        checkpoint = torch.load(checkpoint_path, map_location="cpu") 
         self.epoch_ = checkpoint['epoch']
         print('load chekcpoint {} epoch'.format(self.epoch_))
         
@@ -113,8 +139,6 @@ class Trainer:
             loss_G_FM = 0
             loss_D_REAL=0
             loss_D_FAKE=0
-
-
 
             with tqdm(self.train_dloader, unit='batch') as tepoch:
                 for b, (h, x, _) in enumerate(tepoch):       
@@ -206,8 +230,11 @@ class Trainer:
                     del loss_gan_fake_g
                     del loss_gan_real_d
                     del x_fake
+                    del loss_fm
                     del loss_d
                     del loss_g
+                    gc.collect()
+                    torch.cuda.empty_cache() 
 
             if self.scheduler_D != None:
                 self.scheduler_D.step()
@@ -226,10 +253,13 @@ class Trainer:
             checkpoint = {
                     'epoch': e+1,
                     'plot_ind': self.plot_ind,
+                
                     'net_G': self.net_G.state_dict(),
                     'net_D': self.net_D.state_dict(),
+                
                     'optimizer_G': self.optimizer_G.state_dict(),
                     'optimizer_D': self.optimizer_D.state_dict(),
+                
                     'scheduler_G': self.scheduler_G.state_dict(),
                     'scheduler_D': self.scheduler_D.state_dict(),
                     'loss_dict': self.loss_dict,
@@ -238,11 +268,3 @@ class Trainer:
             del checkpoint
             gc.collect()
             torch.cuda.empty_cache() 
-
-
-
-
-
-
-
-
