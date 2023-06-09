@@ -120,14 +120,15 @@ class Trainer:
         self.scheduler_G.load_state_dict(checkpoint['scheduler_G'])
         self.scheduler_D.load_state_dict(checkpoint['scheduler_D'])
 
-
+    
     def train(self, h_s, x_s, var= 0.1, FM_LAMBDA=10):        
         for e in range(self.epoch_, self.n_epochs):
             if self.stage =="local":
                 if (self.config.n_fixed_global_epochs> 0) & (e == self.epoch_):
                     printlog(f"--> Train Only Local Enhancer for {self.config.n_fixed_global_epochs} epochs", self.LOG_PATH)
                     trainable_global(self.net_G, grad=False) 
-                if (e == (self.epoch_ + self.config.n_fixed_global_epochs)) | ((self.epoch_ >= self.config.n_fixed_global_epochs) & (e == self.epoch_) ):
+                    
+                if (e == self.config.n_fixed_global_epochs) | ((self.epoch_ >= self.config.n_fixed_global_epochs) & (e == self.epoch_) ):
                     printlog(f"--> Train Global Generator and Local Enhancer for {self.config.n_joint_epochs} epochs", self.LOG_PATH)
                     trainable_global(self.net_G, grad=True)
                 else:
