@@ -52,3 +52,18 @@ def plot_loss_curve(loss_dict, suptitle  = 'Loss Curve'):
     fig.suptitle(suptitle)
     plt.tight_layout()
     return fig
+
+
+
+
+def get_loss_log(log_path):
+    with open(log_path, 'r') as f:
+        log_txt = f.readlines()
+    
+    log = list(filter(lambda x: "Epoch" in x, log_txt))
+    log_list = list(map(lambda l: re.match('\\[Epoch [0-9]*\\] .+ \\[REAL: (.+) FAKE: (.+)] loss G: .+ \\[GAN: (.+) . FM: (.+)]',
+                           string=l).groups(), log))
+    
+    log_arr = np.array(log_list).astype('float')
+    return log_arr
+    

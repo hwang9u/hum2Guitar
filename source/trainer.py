@@ -121,13 +121,13 @@ class Trainer:
         self.scheduler_D.load_state_dict(checkpoint['scheduler_D'])
 
 
-    def train(self, h_s, x_s, var= 0., FM_LAMBDA=10):        
+    def train(self, h_s, x_s, var= 0.1, FM_LAMBDA=10):        
         for e in range(self.epoch_, self.n_epochs):
             if self.stage =="local":
                 if (self.config.n_fixed_global_epochs> 0) & (e == self.epoch_):
                     printlog(f"--> Train Only Local Enhancer for {self.config.n_fixed_global_epochs} epochs", self.LOG_PATH)
                     trainable_global(self.net_G, grad=False) 
-                if ((e == (self.epoch_ + self.config.n_fixed_global_epochs)) | (self.epoch_ > self.config.n_fixed_global_epochs)) & (e == self.epoch_):
+                if (e == (self.epoch_ + self.config.n_fixed_global_epochs)) | ((self.epoch_ >= self.config.n_fixed_global_epochs) & (e == self.epoch_) ):
                     printlog(f"--> Train Global Generator and Local Enhancer for {self.config.n_joint_epochs} epochs", self.LOG_PATH)
                     trainable_global(self.net_G, grad=True)
                 else:
@@ -179,7 +179,6 @@ class Trainer:
 
                     # Update Discriminator
                     # D(x')
-                    noise = torch.normal(0, var, size=x_fake.shape).to(self.device)
                     y_fake = self.net_D(x_fake.detach()+noise, h)
 
                     loss_gan_real_d = 0
@@ -224,6 +223,7 @@ class Trainer:
                                 del fig
                     del x
                     del h
+                    del noise
                     del y_fake
                     del y_real
                     del loss_gan_fake_d
