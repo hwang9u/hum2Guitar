@@ -101,6 +101,8 @@ $ python source/train.py --guitar_dir GUITARSET_DIR --humming_dir HUMMING_DIR
 ## Outro
 * What I obtained from this project was not an exact guitar playing sound but rather a sound resembling a guitar.  My model produces a sound similar to when I first started playing the guitar , with a gentle plucking sensation as if using my fingers instead of a pick.
 * Of course, using more advanced generation algorithms could potentially achieve a sound closer to that of a guitar. To address this aspect, I need to continue exploring various approaches and strive to improve and grow in the future.
+* **Anyway, I felt happy during this project because it made me feel like I fulfilled my childhood dream on my own. 😆**
+
 
 <br>
 
