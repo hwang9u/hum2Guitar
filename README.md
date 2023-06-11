@@ -96,7 +96,7 @@ $ python source/train.py --guitar_dir GUITARSET_DIR --humming_dir HUMMING_DIR
 * ❗️I have confirmed that when converting the real guitar's mel spectrogram into audio, the timbre of the input audio is not reproduced accurately. **Therefore, in order to more accurately reproduce the timbre of the guitar, it is necessary to explore better methods for restoring the "phase information" of the guitar.** 
 * ❗️Therefore, I need to find a better method than the GLA or discover better features than the Mel spectrogram.
 
-
+<br>
 
 ## Outro
 * What I obtained from this project was not an exact guitar playing sound but rather a sound resembling a guitar.  My model produces a sound similar to when I first started playing the guitar , with a gentle plucking sensation as if using my fingers instead of a pick.
