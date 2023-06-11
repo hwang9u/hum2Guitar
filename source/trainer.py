@@ -72,9 +72,6 @@ class Trainer:
             net_LE.apply(init_weights)
             net_LE.global_generator = nn.Sequential(*[getattr(global_generator, k) for k in ['down', 'res', 'up']])
             self.net_G = net_LE
-
-        # self.net_G.to(device)
-        # self.net_D.to(device)
                         
         self.crit_gan = LossGAN(ls=True)
         self.crit_fm = LossFM(num_D=self.net_D.num_D, n_layers=self.net_D.n_layers)
