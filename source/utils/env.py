@@ -12,7 +12,7 @@ def create_config():
     parser.add_argument('--humming_dir', default = '../sample_hum/')
     parser.add_argument('--out_dir', default = "./output/")
     parser.add_argument('--name', default = "")
-    parser.add_argument('--n_global_epochs', default = 100, type = int)
+    parser.add_argument('--n_global_epochs', default = 200, type = int)
     parser.add_argument('--n_fixed_global_epochs', default = 10, type = int)
     parser.add_argument('--n_joint_epochs', default = 200, type = int)
     parser.add_argument('--plot_interval', default = 600, type=int)

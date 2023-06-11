@@ -1,0 +1,7 @@
+librosa
+numpy
+adabelief-pytorch
+matplotlib
+tqdm
+numpy
+torch

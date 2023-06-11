@@ -3,16 +3,16 @@ import torch.nn as nn
 
 ## Feature Matching Loss
 class LossFM(nn.Module):
-    def __init__(self, num_D=3, num_layer=5):
+    def __init__(self, num_D=3, n_layers=4):
         super().__init__()
         self.l1_loss = nn.L1Loss(reduction='mean')
         self.num_D = num_D
-        self.num_layer= num_layer
+        self.n_layers= n_layers
         
     def forward(self, x_list, y_list):
         total_loss = 0
         for k in range(self.num_D):
-            for i in range(self.num_layer):
+            for i in range(self.n_layers):
                 total_loss += self.l1_loss(x_list[k][i], y_list[k][i])
         return total_loss
 
@@ -27,6 +27,3 @@ class LossGAN(nn.Module):
         loss = self.loss_func(y, label)
         return loss
 
-## learning rate scheduler    
-def lr_lambda(epoch, n_epochs, decay_epoch):
-    return 1. if epoch < decay_epoch else 1 - float(epoch - decay_epoch) / (n_epochs - decay_epoch)

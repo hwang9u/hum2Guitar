@@ -63,7 +63,7 @@ class SingleDiscriminator(nn.Module):
 
 ## - Multi-scale Discriminator
 class MultiscaleDiscriminator(nn.Module):
-    def __init__(self, input_dim=2, n_layers=4, use_sigmoid=False, num_D=3, return_inter_features=False):
+    def __init__(self, input_dim=1, n_layers=4, use_sigmoid=False, num_D=3, return_inter_features=False):
         super(MultiscaleDiscriminator, self).__init__()                
         self.num_D=num_D
         self.n_layers = n_layers # the number of layers in single D
