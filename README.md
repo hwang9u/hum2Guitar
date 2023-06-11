@@ -1,25 +1,14 @@
 # Hum2Guitar
 ## Acoustic Guitar Timbre Transfer using Pix2PixHD architecture
 
-> ## Examples: Ob la di ob la da - The Beatles
-### [Check notebook and Listen examples here](https://nbviewer.org/gist/hwang9u/06cdd538d25bba76b72b3daae96ca1e3)
-
-* Male version
 <center>
-<img src="./output/img/humming_sample_q21_male.jpg" width="1000px" height="250px">
-</center>
-
-* Female version
-<center>
-<img src="./output/img/humming_sample_q9_female.jpg" width="1000px" height="250px">
+<img src="./output/img/humming_sample_img_ex.jpg" width="1000px" height="250px">
 </center>
 
 
 
 ## ✨ Inspiration
 I have ALWAYS loved playing the Guitar🎸 since I was young. (I especially enjoy fingerstyle playing.) When I first started practicing the guitar, my fingers didn't work. So I once dreamed that *"If I hum, I want it to change to guitar sound."* It was wildest dream at the time, so I just practiced the guitar harder. 😂 This project began simply with curiosity about the memory.
-
-<br>
 
 ## Approach
 #### ✅ Timbre-Transfer using Image-to-Image translation techniques
@@ -45,17 +34,17 @@ I have ALWAYS loved playing the Guitar🎸 since I was young. (I especially enjo
 ### Data Pre-Processing
 
 <center>
-<img src="./output/img/preprocessing.png" width="700px" height="150px">
+<img src="./output/img/diagram/preprocessing.png" width="1000px" height="200px">
 </center>
 
 ### Training
 <center>
-<img src="./output/img/training.png" width="1000px" height="300px">
+<img src="./output/img/diagram/training.png" width="1000px" height="300px">
 </center>
 
 ### Reconstructing the Audio signal from Synthesized Mel Spectrogram
 <center>
-<img src="./output/img/recon_to_audio.png" width="1000px" height="150px">
+<img src="./output/img/diagram/recon_to_audio.png" width="1000px" height="200px">
 </center>
 
 
@@ -82,40 +71,37 @@ $ python source/train.py --guitar_dir GUITARSET_DIR --humming_dir HUMMING_DIR
 <br>
 
 ## Results
-### Loss Curve
-#### - Global Generator
-* Trained for 100 epochs
-* Fixed learning rate
-#### - Local Enhancer
-* Trained only Local Enhancer for 10 epochs and then jointly trained for 200 epochs
-* Jointly Trained for 200 epochs
-Fixed learning rate for 100 epochs and linearly decayed afterwards.
-<img src="./output/img/global_loss.jpg" width="1000px" height="200px">
-<img src="./output/img/local_loss.jpg" width="1000px" height="200px">
+#### ✔️ **[Check notebook and Listen examples here](https://nbviewer.org/gist/hwang9u/abf4fb685f10b435d88ba1f9f2eda822)**
 
-
-### The Changes of outputs over epochs
-* Guitar(top) and humming(bottom)
+### Humming to Guitar
 <center>
-<figure class="half">
-<img src="./output/sample/guitar_training.gif" width="1000px" height="200px">
-<img src="./output/sample/humming_training.gif" width="1000px" height="200px">
-<figure>
+<img src="./output/img/humming_sample_q116.jpg" width="1000px" height="150px">
+<img src="./output/img/humming_sample_q9.jpg" width="1000px" height="150px">
+<img src="./output/img/humming_sample_q66.jpg" width="1000px" height="150px">
+<img src="./output/img/humming_sample_q107.jpg" width="1000px" height="150px">
 </center>
 
-### How close is the sound restored from the semantic harmonics of the guitar to the original, not humming semantic harmonics?
-* **We can guess on how well the model can accurately restore from semantic harmonics based on these examples.**
-* You can listen [here](#check-notebook-and-listen-examples-here)
+### +) Guitar to Guitar
+ #### How close is the sound restored from the semantic harmonics of the guitar to the original, not humming semantic harmonics?
+
 <center>
-<img src="./output/img/guitar_sample_05_SS3-98-C_solo_mic.jpg" width="1000px" height="200px">
+<img src="./output/img/guitar_sample_00_Rock2-142-D_solo_mic.jpg" width="1000px" height="150px">
+<img src="./output/img/guitar_sample_05_Funk3-98-A_solo_mic.jpg" width="1000px" height="150px">
+<img src="./output/img/guitar_sample_05_SS3-98-C_solo_mic.jpg" width="1000px" height="150px">
 </center>
+
+* ❗️ We can guess on how well the model can accurately restore from semantic harmonics based on these examples.
+* ❗️ After comparing the synthesized audio with the actual input audio of the guitar, it became evident that while the synthesized audio was "similar" to the actual guitar sound, **there were distinct differences in timbre**.
+* ❗️ I thought it would be reasonable to examine the results by converting real mel spectrograms into audio to determine the source of the differences between the synthesized sound and the original guitar sound.
+* ❗️I have confirmed that when converting the real guitar's mel spectrogram into audio, the timbre of the input audio is not reproduced accurately. **Therefore, in order to more accurately reproduce the timbre of the guitar, it is necessary to explore better methods for restoring the "phase information" of the guitar.** 
+* ❗️Therefore, I need to find a better method than the GLA or discover better features than the Mel spectrogram.
 
 
 
 ## Outro
-* What I obtained from this project was not an exact guitar playing sound but rather a sound resembling a guitar. My model produces a sound similar to when I first started playing the guitar , with a gentle plucking sensation as if using my fingers instead of a pick.
+* What I obtained from this project was not an exact guitar playing sound but rather a sound resembling a guitar.  My model produces a sound similar to when I first started playing the guitar , with a gentle plucking sensation as if using my fingers instead of a pick.
 * Of course, using more advanced generation algorithms could potentially achieve a sound closer to that of a guitar. To address this aspect, I need to continue exploring various approaches and strive to improve and grow in the future.
-* **But I think there's something about human's guitar playing that goes beyond a physical sound. It gives emotions beyond the mood given by elements such as the composition of the song and the type of instrument. No matter how AI develops in the future, I hope this will not change.**
+
 <br>
 
 #### +) To do: Key points I need to focus on
@@ -125,6 +111,7 @@ Fixed learning rate for 100 epochs and linearly decayed afterwards.
 * It would be beneficial to first explore the characteristics in the frequency domain and also further investigate the impulse response of an acoustic guitar.
 * Hyper-parameter optimization
 * Attempts to approach using different generative model
+* Mel to Audio inversion method (focusing on phase reconstruction) 
 
 
 ### Reference
