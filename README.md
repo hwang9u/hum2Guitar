@@ -71,7 +71,7 @@ $ python source/train.py --guitar_dir GUITARSET_DIR --humming_dir HUMMING_DIR
 <br>
 
 ## Results
-#### ✔️ **[Check notebook and Listen examples here](https://nbviewer.org/gist/hwang9u/abf4fb685f10b435d88ba1f9f2eda822)**
+#### ✔️ **[Check notebook and Listen examples here](https://nbviewer.org/gist/hwang9u/38188f4cb9d28ce0fb8d01b9c2c48501)**
 
 ### Humming to Guitar
 <center>
