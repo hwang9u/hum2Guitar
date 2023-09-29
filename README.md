@@ -129,7 +129,7 @@ $ python source/train.py --guitar_dir GUITARSET_DIR --humming_dir HUMMING_DIR
 If you want to use this code, please cite as follows:
 ```
 @misc{hwang9u-hum2guitar,
-  author = {Kim Seonjoo},
+  author = {Kim, Seonju},
   title = {hum2guitar},
   year = {2023},
   publisher = {GitHub},
